@@ -1,0 +1,32 @@
+# Reverse proxy and automatic HTTPS, written by `polysite init`. The domains come from .env (SITE_DOMAIN, CMS_DOMAIN);
+# with SITE_SCHEME / CMS_SCHEME set to https, Caddy gets and renews a Let's Encrypt certificate for each name. Both names
+# must already point at this server (DNS A/AAAA records) and ports 80 and 443 must be reachable from the internet.
+# Add more sites by adding their domains in the admin; point each domain's DNS here and list it below.
+
+{$SITE_SCHEME:https}://{$SITE_DOMAIN} {
+	root * /srv/static
+	file_server {
+		pass_thru
+	}
+
+	# Uploaded files never change (a re-upload gets a new filename), so browsers may keep them.
+	handle /api/media/file/* {
+		reverse_proxy cms:3001 {
+			header_down Cache-Control "public, max-age=86400"
+		}
+	}
+
+	# The browser's calls to the CMS API come through the site's own address, so no CORS setup is needed.
+	handle /api/* {
+		reverse_proxy cms:3001
+	}
+
+	handle {
+		reverse_proxy web:3000
+	}
+}
+
+{$CMS_SCHEME:https}://{$CMS_DOMAIN} {
+	redir / /admin
+	reverse_proxy cms:3001
+}

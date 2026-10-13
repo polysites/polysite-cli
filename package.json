@@ -1,0 +1,28 @@
+{
+  "name": "@polysite/cli",
+  "version": "0.1.0",
+  "description": "Command line tool to install, run, back up and upgrade a Polysite CMS",
+  "type": "module",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE.md",
+  "bin": {
+    "polysite": "bin/polysite.js",
+    "polysites": "bin/polysite.js",
+    "poly": "bin/polysite.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "templates",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test",
+    "lint": "node --check bin/polysite.js"
+  },
+  "dependencies": {}
+}

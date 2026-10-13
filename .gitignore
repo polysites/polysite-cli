@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.polysite/
+dist/
+
+# Claude Code local instructions (they live in ../.claude, not in this repository)
+CLAUDE.local.md

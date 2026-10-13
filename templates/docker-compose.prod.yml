@@ -1,0 +1,105 @@
+# Polysite production stack, written by `polysite init`. Nothing is built here: the services run published, versioned
+# images, and the version you run is POLYSITE_VERSION in .env. Change it with `polysite upgrade`, not by hand.
+#
+# Lines carrying the database tag (a hash, an at sign and "db" at the very start of the line) are used only with the bundled
+# PostgreSQL, init's default, and are removed when the install uses an external database (--database external).
+#
+# Themes and plugins are fixed at build time: the published images hold the core only. A site that needs its own theme
+# or plugins builds its own image from source and names it in POLYSITE_CMS_IMAGE / POLYSITE_WEB_IMAGE in .env.
+
+name: {{COMPOSE_PROJECT}}
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - static-content:/srv/static:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    env_file: .env
+    depends_on:
+      - web
+      - cms
+
+  web:
+    image: ${POLYSITE_WEB_IMAGE:-${POLYSITE_REGISTRY:-ghcr.io/polysites}/polysite-web:v${POLYSITE_VERSION:?POLYSITE_VERSION is required}}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      OTEL_SERVICE_NAME: polysite-web
+      NUXT_PUBLIC_CMS_SERVER_URL: ${CMS_SCHEME:-https}://${CMS_DOMAIN:?CMS_DOMAIN is required}
+    volumes:
+      - static-content:/app/.output/public
+    depends_on:
+      - cms
+
+  cms:
+    image: ${POLYSITE_CMS_IMAGE:-${POLYSITE_REGISTRY:-ghcr.io/polysites}/polysite-cms:v${POLYSITE_VERSION:?POLYSITE_VERSION is required}}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      OTEL_SERVICE_NAME: polysite-cms
+    volumes:
+      # Uploaded files. Without a volume they would be lost on every redeploy.
+      - media-data:/repo/apps/cms/media
+#@db     depends_on:
+#@db       db:
+#@db         condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec"]
+    volumes:
+      - redis-data:/data
+
+#@db   db:
+#@db     image: postgres:{{POSTGRES_MAJOR}}-alpine
+#@db     restart: unless-stopped
+#@db     env_file: .env
+#@db     environment:
+#@db       POSTGRES_USER: ${POSTGRES_USER}
+#@db       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+#@db       POSTGRES_DB: ${POSTGRES_DB}
+#@db     volumes:
+#@db       - db-data:/var/lib/postgresql/data
+#@db     healthcheck:
+#@db       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+#@db       interval: 10s
+#@db       timeout: 5s
+#@db       retries: 10
+
+  # Nightly database + media backups and the tool that restores them (docs/guide/backups.md).
+  backup:
+    image: ${POLYSITE_BACKUP_IMAGE:-${POLYSITE_REGISTRY:-ghcr.io/polysites}/polysite-backup:v${POLYSITE_VERSION:?POLYSITE_VERSION is required}}
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - media-data:/media:ro
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+#@db     depends_on:
+#@db       db:
+#@db         condition: service_healthy
+
+  # Not started by `up`. Used by `polysite restore`.
+  restore:
+    profiles: ["restore"]
+    image: ${POLYSITE_BACKUP_IMAGE:-${POLYSITE_REGISTRY:-ghcr.io/polysites}/polysite-backup:v${POLYSITE_VERSION:?POLYSITE_VERSION is required}}
+    entrypoint: ["/opt/backup/restore.sh"]
+    env_file: .env
+    volumes:
+      - media-data:/media
+      - ${BACKUP_HOST_DIR:-./backups}:/backups
+
+volumes:
+  static-content:
+  caddy-data:
+  caddy-config:
+  redis-data:
+  media-data:
+#@db   db-data:
