@@ -6,11 +6,11 @@ import { firstLine } from "./docker.js";
 const SEPARATOR = "@@POLYSITE_REQUEST@@";
 const SCRIPT = () => readFileSync(new URL("../../templates/cms-ops.ts", import.meta.url), "utf8");
 
-// Written, run and deleted inside the container. The folder is Next's cache, which the image's unprivileged user can write
+// Written, run and deleted inside the container. The .mts extension keeps it ES-module code: Next marks .next/ as CommonJS, where top-level await and the relative imports fail. The folder is Next's cache, which the image's unprivileged user can write
 // (the rest of the app is read-only to it), and the script's relative imports resolve from there.
 const SHELL = [
   "set -e",
-  "f=.next/polysite-cli-ops.ts",
+  "f=.next/polysite-cli-ops.mts",
   "in=$(mktemp)",
   'trap \'rm -f "$f" "$in"\' EXIT',
   'cat > "$in"',
@@ -30,7 +30,8 @@ export async function cmsOp(ctx, request) {
   if (error) throw new CliError(error[1].trim());
   const ok = /POLYSITE_CLI_RESULT:(.*)/.exec(r.stdout);
   if (!ok || r.code !== 0) {
-    const why = firstLine(r.stderr) || firstLine(text.split(/\r?\n/).filter((l) => /error/i.test(l)).join("\n")) || `exit code ${r.code}`;
+    // `payload run` prints "Error running script: <path>" first; the line that says why comes after it.
+    const why = firstLine(r.stderr.split(/\r?\n/).filter((l) => !/^Error running script/.test(l)).join("\n")) || firstLine(r.stderr) || firstLine(text.split(/\r?\n/).filter((l) => /error/i.test(l)).join("\n")) || `exit code ${r.code}`;
     throw new CliError(`The CMS could not run the operation: ${why}`, { hint: "Is the database up (`polysite status`)? Details: `polysite logs cms --tail 50`." });
   }
   return JSON.parse(ok[1]);

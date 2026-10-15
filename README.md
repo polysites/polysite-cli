@@ -8,10 +8,11 @@ The same program answers to three names: `polysite`, `polysites` and `poly`.
 
 - Plain ESM JavaScript, Node.js 22 or newer, **no dependencies**.
 - Needs Docker with Compose v2 on the machine it manages. It never touches the database or the images except through them.
-> **Early preview (v0.1): not ready for production.** Every command is covered by unit tests that run the CLI against a fake
-> `docker` (93 tests, all passing), but **no command has been run end to end** against real Polysite images, a real database
-> and a real server. Use it only on a throwaway server for now, and take your own backup first. See
-> "Verification status" and "Not done yet" at the end, and [CHANGELOG.md](CHANGELOG.md).
+
+> **Early preview (v0.1).** The CLI has been run against a real Polysite stack, once, on one machine (see "Verification status"),
+> and that run found and fixed real bugs. It has **not** been tried on a production server, with HTTPS and a real domain, or with
+> plugins built into the image. Try it on a throwaway server first and take your own backup before `upgrade` or `restore`.
+> Details in "Verification status" and "Not done yet" at the end, and [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
@@ -26,7 +27,7 @@ and its checksum), but nothing publishes them, so use npm. `install.ps1` is a st
 
 ## Quick start
 
-Try this on a throwaway server first (see the status note above).
+Try this on a throwaway server first (see the status note above). It follows the path that was run for real: `init`, `doctor`, `up`, `backup`.
 
 ```sh
 polysite init /opt/polysite --domain example.org         # files + generated secrets; nothing is started
@@ -198,16 +199,27 @@ needed (run them in a container, as above).
 
 What has been checked, and what has not.
 
-- **Checked:** 93 unit tests across argument handling, the `.env` editing, secret generation, `init`, the stack commands,
+- **Unit tests:** 97 tests across argument handling, the `.env` editing, secret generation, `init`, the stack commands,
   `plugin` (including the `purge` safety rules), `backup`, `restore`, `migrate`, `upgrade` (including the rollback path),
-  `user`, `site`, `theme` and `doctor`. They prove the CLI sends the commands, input and refusals it is designed to send.
-- **Not checked:** the other half, that those commands do the right thing against real Polysite images, a real PostgreSQL, a
-  real backup service and a real server. A script to run the CLI against a real stack is **planned but has not been written**
-  (an earlier draft of this file named it `scripts/e2e-real.sh`; there is no such file). Until it exists and passes, treat
-  every command as unproven, in particular `restore`, `upgrade` (and its automatic rollback), `plugin purge` and `migrate`,
-  and try them first on a throwaway server.
-- **Not checked:** `install.sh` against a real published release (there is no release host), and the installer on a
-  machine without Node.
+  `user`, `site`, `theme` and `doctor`, run against a fake `docker`. They prove the CLI sends the commands, input and
+  refusals it is designed to send. They cannot run a shell or a compose file, which is how three bugs got past them (below).
+- **Run against a real stack (2026-10-15, version 0.1.1, Docker Desktop on Windows, Docker 28 / Compose 2.38):** the core's cms, web
+  and backup images built from the `v0.1.0-beta.4` tag and served from a throwaway local registry, with plain HTTP on
+  `localhost`. Run for real: `init`, `doctor` (offline and `--deep`), `up`, `status`, `version`, `logs`, `restart`, `down`
+  (and its typed-confirmation refusal), `backup`, `backups`, `restore --verify-only`, `restore` (a site created after the
+  backup was gone afterwards, the rest intact), `upgrade` to a second image set, the automatic rollback of an `upgrade`
+  whose new cms never became healthy (exit 5, previous release serving again), `migrate --status` and `--check`,
+  `user create|list|reset-password`, `site create|list`, `theme list`, `plugin add|list|disable|enable` against a `plugins/`
+  folder, and the refusals of `plugin remove` and `plugin purge`.
+- **That run found three bugs, fixed in 0.1.2:** `restore` could not find its own service (profile-gated services are
+  not listed by `config --services`); every database query from `plugin list` and `plugin purge` failed, because an unquoted
+  `|` in the `psql` command was read as a shell pipe; and `user` and `site` commands failed because Next's `.next/` folder is
+  CommonJS, which broke the operations script. Each now has a regression test.
+- **Not checked:** `plugin purge` against real plugin tables (the images held no plugins); the images' behaviour with plugins
+  built in; HTTPS, certificates, `doctor --online` and DNS; Linux and macOS hosts (only Windows was used); an external
+  database (`--database external`); off-site backups (`BACKUP_RCLONE_REMOTE`); an `upgrade` between two real published
+  releases; `install.sh` against a real release (there is no release host); and the installer on a machine without Node.
+  A script that repeats the real-stack run is **not written**: the run above was driven by hand.
 
 ## Licence
 
@@ -216,7 +228,7 @@ licence; read it before using the CLI for client work.
 
 ## Not done yet (v0.1)
 
-- A real-stack end-to-end script (see "Verification status"); nothing has been run against real images.
+- A script that repeats the real-stack run (see "Verification status"); it was driven by hand.
 - No hosted release for `install.sh`; npm is the only way to install.
 - `install.ps1` (Windows installer) is a stub; the CLI itself works on Windows through npm.
 - No `install` command that also starts the stack and prints the setup link (`init`, `doctor`, `up` do it in three steps).

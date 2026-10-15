@@ -3,6 +3,26 @@
 All notable changes to the Polysite CLI. The format follows [Keep a Changelog](https://keepachangelog.com/) and the
 project uses [semantic versioning](https://semver.org/).
 
+## [0.1.2] - 2026-10-15
+
+First release tested against a real stack (see the README's "Verification status"): the cms, web and backup images were
+built from the core's `v0.1.0-beta.4` tag, served from a local registry, and driven through `init`, `up`, `backup`,
+`restore`, `upgrade` (including a rollback), `user`, `site` and `plugin`. It found three bugs, all fixed here.
+
+### Fixed
+
+- `restore` always failed with "no `restore` service": `docker compose config --services` leaves profile-gated services out.
+  It now lists every profile.
+- Every database query from `plugin list` and `plugin purge` failed: the `psql` field separator `|` was unquoted, so the
+  shell read it as a pipe. Table and migration counts now show real numbers instead of `?`.
+- `user` and `site` commands failed: Next marks `.next/` as CommonJS, which broke the operations script. It is now an
+  `.mts` file. A failure also reports its cause instead of only "Error running script".
+
+### Changed
+
+- README: the status note now says what was and was not run for real.
+- Tests: 97 (four regression tests for the fixes above).
+
 ## [0.1.1] - 2026-10-15
 
 Documentation and packaging only; no behaviour change besides the Node floor.

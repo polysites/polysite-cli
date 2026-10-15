@@ -1,6 +1,6 @@
 {
   "name": "@polysite/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Command line tool to install, run, back up and upgrade a Polysite CMS",
   "type": "module",
   "license": "SEE LICENSE IN LICENSE.md",

@@ -49,8 +49,9 @@ export function createDocker({ root, files = [], project = null, envPath = null,
       return r.code === 0 ? r.stdout.trim().replace(/^v/, "") : null;
     },
 
-    async services() {
-      const r = await api.compose(["config", "--services"]);
+    /** `allProfiles` also lists profile-gated services such as `restore`, which `config --services` leaves out by default. */
+    async services(allProfiles = false) {
+      const r = await api.compose(allProfiles ? ["--profile", "*", "config", "--services"] : ["config", "--services"]);
       if (r.code !== 0) throw new CliError(`docker compose could not read the compose files: ${firstLine(r.stderr)}`, { hint: "Run `polysite doctor`." });
       return r.stdout.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
     },
@@ -131,7 +132,7 @@ export function createDocker({ root, files = [], project = null, envPath = null,
     async psql(sql, { write = false, tuples = true } = {}) {
       if (dryRun && write) return dry(`SQL in the database:
 ${sql}`);
-      const flags = ["-X", "-v", "ON_ERROR_STOP=1", ...(tuples ? ["-At", "-F", "|"] : []), ...(write ? ["--single-transaction"] : [])].join(" ");
+      const flags = ["-X", "-v", "ON_ERROR_STOP=1", ...(tuples ? ["-At", "-F", "'|'"] : []), ...(write ? ["--single-transaction"] : [])].join(" ");
       const script = `psql "$DATABASE_URL" ${flags}`;
       const args = ["sh", "-c", script];
       const o = { input: sql };

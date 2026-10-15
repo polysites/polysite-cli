@@ -171,7 +171,7 @@ backup. Replacing live data needs the backup's name typed back (or --confirm).`,
     await confirmTyped(ctx, `This replaces ${what} of the live install with the contents of ${target}. Anything saved since that backup is lost\n(a copy of the current database is kept in the backups folder as pre-restore-*.dump).`, target);
 
     ctx.audit("restore-start", { archive: target, scope: what });
-    const services = await docker.services();
+    const services = await docker.services(true);
     if (!services.includes("restore")) throw new CliError("This install's compose files have no `restore` service.", { hint: "Use the compose file written by `polysite init`." });
     out.info("Stopping web and cms...");
     await docker.mutate(["stop", "web", "cms"]);

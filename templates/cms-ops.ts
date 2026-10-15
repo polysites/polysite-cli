@@ -1,5 +1,5 @@
 // Run by `polysite user|site ...` inside the CMS container, through Payload's local API:
-//   npx payload run .next/polysite-cli-ops.ts   (JSON request on stdin)
+//   npx payload run .next/polysite-cli-ops.mts   (JSON request on stdin)
 // It prints one line, POLYSITE_CLI_RESULT:<json> or POLYSITE_CLI_ERROR:<message>, which the CLI parses; everything else
 // on stdout (Payload's own logging) is ignored. Passwords arrive on stdin, never on a command line or in the environment,
 // and are never printed.
