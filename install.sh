@@ -4,7 +4,7 @@
 #   curl -fsSL https://get.polysite.example/install.sh | sh
 #   sh install.sh [options]
 #
-# What it does, and nothing more: checks Node.js 20+ is present, downloads the release tarball and its checksum,
+# What it does, and nothing more: checks Node.js 22+ is present, downloads the release tarball and its checksum,
 # refuses to go on if the checksum does not match, unpacks it under <prefix>/lib/polysite-cli/<version>, and links
 # polysite, polysites and poly into <bin-dir>. No sudo, no package manager, no changes outside those folders.
 #
@@ -63,9 +63,9 @@ BASE_URL=${BASE_URL%/}
 # ---- prerequisites --------------------------------------------------------------------------------------------------
 have() { command -v "$1" >/dev/null 2>&1; }
 
-have node || die "Node.js 20 or newer is required and 'node' was not found. Install it from https://nodejs.org (or your package manager), then run this again."
+have node || die "Node.js 22 or newer is required and 'node' was not found. Install it from https://nodejs.org (or your package manager), then run this again."
 node_major=$(node -p 'process.versions.node.split(".")[0]' 2>/dev/null || echo 0)
-[ "$node_major" -ge 20 ] 2>/dev/null || die "Node.js 20 or newer is required; this is $(node -v)."
+[ "$node_major" -ge 22 ] 2>/dev/null || die "Node.js 22 or newer is required; this is $(node -v)."
 
 if have curl; then fetch() { curl -fsSL "$1" -o "$2"; }
 elif have wget; then fetch() { wget -q "$1" -O "$2"; }

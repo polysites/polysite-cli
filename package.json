@@ -1,10 +1,13 @@
 {
   "name": "@polysite/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Command line tool to install, run, back up and upgrade a Polysite CMS",
   "type": "module",
-  "private": true,
   "license": "SEE LICENSE IN LICENSE.md",
+  "publishConfig": { "access": "public" },
+  "repository": { "type": "git", "url": "git+https://github.com/polysites/polysite-cli.git" },
+  "homepage": "https://polysites.github.io/polysite/",
+  "bugs": { "url": "https://github.com/polysites/polysite-cli/issues" },
   "bin": {
     "polysite": "bin/polysite.js",
     "polysites": "bin/polysite.js",
@@ -18,7 +21,7 @@
     "CHANGELOG.md"
   ],
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "scripts": {
     "test": "node --test",

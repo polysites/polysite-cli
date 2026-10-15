@@ -119,7 +119,7 @@ export function createDocker({ root, files = [], project = null, envPath = null,
       return api.compose(["run", "--rm", "-T", ...(noDeps ? ["--no-deps"] : []), ...mountArgs, "cms", ...args], o);
     },
 
-    /** Runs a script from the backup tooling (ops/backup) in the backup service. */
+    /** Runs a script from the backup tooling (backup/) in the backup service. */
     async inBackup(script, args = [], o = {}) {
       if (dryRun && o.mutating) return dry(`in the backup service: ${script} ${args.join(" ")}`);
       const path = `/opt/backup/${script}`;

@@ -1,0 +1,24 @@
+# Stages a release on npm when a version tag is pushed. Nothing goes live until a maintainer
+# approves the staged version in the npm dashboard (or with `npm stage approve`), so a
+# compromised workflow cannot publish on its own. Auth is npm trusted publishing (OIDC): no token.
+name: Publish
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+  id-token: write
+jobs:
+  stage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - run: npm test
+      - name: Tag matches package.json
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - run: npm stage publish --provenance --access public

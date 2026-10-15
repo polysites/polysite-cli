@@ -6,28 +6,27 @@ Compose and the scripts that already ship with Polysite, with the safety rules w
 
 The same program answers to three names: `polysite`, `polysites` and `poly`.
 
-- Plain ESM JavaScript, Node.js 20 or newer, **no dependencies**.
+- Plain ESM JavaScript, Node.js 22 or newer, **no dependencies**.
 - Needs Docker with Compose v2 on the machine it manages. It never touches the database or the images except through them.
-- Status: **v0.1**, pre-release and private, **not yet verified against a real stack**. Every command is covered by unit tests
-  that run the CLI against a fake `docker` (93 tests, all passing on 2026-10-11), but none of `init`, `up`, `backup`, `restore`,
-  `upgrade`, `plugin purge` or the others has been run end to end against real Polysite images, a real database and a real
-  server. Do not rely on it for a production install yet. See "Verification status" and "Not done yet" at the end, and
-  [CHANGELOG.md](CHANGELOG.md).
+> **Early preview (v0.1): not ready for production.** Every command is covered by unit tests that run the CLI against a fake
+> `docker` (93 tests, all passing), but **no command has been run end to end** against real Polysite images, a real database
+> and a real server. Use it only on a throwaway server for now, and take your own backup first. See
+> "Verification status" and "Not done yet" at the end, and [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
 ```sh
-curl -fsSL https://<release host>/install.sh | sh        # installs to ~/.local, no sudo
-sh install.sh --dry-run                                   # show what it would do, change nothing
-npm install --global @polysite/cli                        # once published; also how to install on Windows
+npm install --global @polysite/cli                        # Linux, macOS and Windows; needs Node.js 22+
 ```
 
-`install.sh` checks for Node 20+, downloads the release tarball **and its checksum**, refuses to continue if they do
-not match, unpacks under `<prefix>/lib/polysite-cli/<version>` and links the three command names into `<prefix>/bin`.
-Options: `--version`, `--prefix`, `--bin-dir`, `--base-url` (also `file://`), `--sha256`, `--dry-run`, `--force`.
-`install.ps1` is a documented stub (TODO); use npm on Windows. `scripts/pack.sh` builds the release files.
+Check it with `polysite --version`.
 
-## Five minutes to a production install
+There is no hosted `install.sh` yet. The repository contains one (and `scripts/pack.sh`, which builds the release tarball
+and its checksum), but nothing publishes them, so use npm. `install.ps1` is a stub; on Windows use npm.
+
+## Quick start
+
+Try this on a throwaway server first (see the status note above).
 
 ```sh
 polysite init /opt/polysite --domain example.org         # files + generated secrets; nothing is started
@@ -207,17 +206,18 @@ What has been checked, and what has not.
   (an earlier draft of this file named it `scripts/e2e-real.sh`; there is no such file). Until it exists and passes, treat
   every command as unproven, in particular `restore`, `upgrade` (and its automatic rollback), `plugin purge` and `migrate`,
   and try them first on a throwaway server.
-- **Not checked:** `install.sh` against a real published release (there is no release host yet), and the installer on a
+- **Not checked:** `install.sh` against a real published release (there is no release host), and the installer on a
   machine without Node.
+
+## Licence
+
+The Polysite Source-Available License, the same as the rest of Polysite: see [LICENSE.md](LICENSE.md). It is not an open-source
+licence; read it before using the CLI for client work.
 
 ## Not done yet (v0.1)
 
 - A real-stack end-to-end script (see "Verification status"); nothing has been run against real images.
-- No release host or published package yet: the `curl ... | sh` URL and `@polysite/cli` on npm are placeholders until the
-  repositories move and the npm name is claimed. It is covered by the product's licence, the Polysite Source-Available License (`LICENSE.md`).
-- The runtime floor is Node.js 20, which reached end of life in April 2026; raise it to the current LTS line before release
-  (to confirm).
-
+- No hosted release for `install.sh`; npm is the only way to install.
 - `install.ps1` (Windows installer) is a stub; the CLI itself works on Windows through npm.
 - No `install` command that also starts the stack and prints the setup link (`init`, `doctor`, `up` do it in three steps).
 - `build` / `push` for derived images with your own themes and plugins; `rollback` as its own command (use `upgrade --to <previous> --allow-downgrade`);
