@@ -3,6 +3,16 @@
 All notable changes to the Polysite CLI. The format follows [Keep a Changelog](https://keepachangelog.com/) and the
 project uses [semantic versioning](https://semver.org/).
 
+## [0.1.3] - 2026-10-16
+
+Documentation only; the code is the same as 0.1.2.
+
+### Changed
+
+- README: `install.sh` is now documented with its real URL, the GitHub release (`releases/latest/download/install.sh`); the
+  "no hosted install.sh" and "no release host" statements are gone. What was checked is recorded: it refuses Node 18, installs
+  from the release after verifying the checksum, and refuses a wrong checksum.
+
 ## [0.1.2] - 2026-10-15
 
 First release tested against a real stack (see the README's "Verification status"): the cms, web and backup images were

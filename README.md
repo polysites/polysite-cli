@@ -21,10 +21,19 @@ The same program answers to three names: `polysite`, `polysites` and `poly`.
 npm install --global @polysite/cli                        # Linux, macOS and Windows; needs Node.js 22+
 ```
 
+or, on Linux and macOS, without npm (installs under `~/.local`, no sudo):
+
+```sh
+curl -fsSL https://github.com/polysites/polysite-cli/releases/latest/download/install.sh | sh
+sh install.sh --dry-run                                   # a downloaded copy: show what it would do, change nothing
+```
+
 Check it with `polysite --version`.
 
-There is no hosted `install.sh` yet. The repository contains one (and `scripts/pack.sh`, which builds the release tarball
-and its checksum), but nothing publishes them, so use npm. `install.ps1` is a stub; on Windows use npm.
+`install.sh` needs Node.js 22+ (it refuses an older one), downloads the release tarball **and its checksum** from the
+GitHub release, refuses to continue if they do not match, unpacks under `<prefix>/lib/polysite-cli/<version>` and links
+the three command names into `<prefix>/bin`. Options: `--version`, `--prefix`, `--bin-dir`, `--base-url` (also `file://`),
+`--sha256`, `--dry-run`, `--force`. `scripts/pack.sh` builds the release files. `install.ps1` is a stub; on Windows use npm.
 
 ## Quick start
 
@@ -226,6 +235,9 @@ What has been checked, and what has not.
     passphrase, nothing is sent.
   - `e2e-https.sh` (16): `init --scheme https` with Caddy's own certificate authority. The http to https redirect, a served
     certificate, HSTS, `X-Frame-Options`, `nosniff`, no `Server` header, and a 70 KB form body refused with 413.
+  - **`install.sh`**, checked by hand from its public URL (the 0.1.2 release, Debian 12): refuses Node 18; with Node 22 downloads,
+    verifies the checksum and installs, and `polysite`, `polysites` and `poly` all run; a wrong `--sha256` is refused and
+    nothing is installed.
   Also run by hand on Windows (Docker Desktop): the same flows plus the automatic rollback of an `upgrade` whose new cms never
   became healthy (exit 5, the previous release serving again).
 - **Bugs those runs found, fixed in 0.1.2, each with a regression test:** `restore` could not find its own service
@@ -235,8 +247,7 @@ What has been checked, and what has not.
   and the generated Caddyfile lacked the core's security headers and request-size limits.
 - **Not checked:** a **Let's Encrypt** certificate (needs a public domain; Caddy's own CA was used), DNS and `doctor --online`;
   macOS; an external database (`--database external`); off-site backups to a real cloud store (a local S3-compatible store was
-  used); the `--build` path; `install.sh` against a real published release (there is no release host yet); and the installer on
-  a machine without Node. The unfixed core issue that Live Preview is blocked on a real domain (the web image bakes in the
+  used); and the `--build` path. The unfixed core issue that Live Preview is blocked on a real domain (the web image bakes in the
   admin's address; `Polysite/docs/ARCHITECTURE.md`, Known Issue #71) applies to installs made by the CLI too.
 ## Licence
 
@@ -245,8 +256,7 @@ licence; read it before using the CLI for client work.
 
 ## Not done yet (v0.1)
 
-- A run on a real production server: a public domain, a Let's Encrypt certificate, `doctor --online`, and `install.sh` from its real URL.
-- No hosted release for `install.sh`; npm is the only way to install.
+- A run on a real production server: a public domain, a Let's Encrypt certificate and `doctor --online`.
 - `install.ps1` (Windows installer) is a stub; the CLI itself works on Windows through npm.
 - No `install` command that also starts the stack and prints the setup link (`init`, `doctor`, `up` do it in three steps).
 - `build` / `push` for derived images with your own themes and plugins; `rollback` as its own command (use `upgrade --to <previous> --allow-downgrade`);
