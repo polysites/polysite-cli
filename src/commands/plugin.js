@@ -262,7 +262,15 @@ function toggle(kind) {
       }
       out.ok(disabling ? `Plugin "${slug}" is switched off. Its data stays in the database.` : `Plugin "${slug}" is switched on.`);
       if (values.restart) {
-        await ctx.docker().mutate(["up", "-d", "--force-recreate", "--no-deps", "cms", "web"], { stream: true });
+        const r = await ctx.docker().mutate(["up", "-d", "--force-recreate", "--no-deps", "cms", "web"], { stream: true });
+        if (r.code !== 0) throw new CliError("docker compose could not restart cms and web.", { hint: "Run `polysite logs` and `polysite doctor`." });
+        if (!ctx.dryRun) {
+          for (const s of ["cms", "web"]) {
+            out.info(`Waiting for ${s} to be healthy...`);
+            const w = await ctx.docker().waitReady(s, { timeoutSec: 300, pollMs: ctx.pollMs });
+            if (!w.ok) throw new CliError(`${s} is ${w.state} after the restart.`, { hint: `polysite logs ${s} --tail 50` });
+          }
+        }
       } else out.say("Run `polysite restart cms web` (or pass --restart) for it to take effect.");
       out.result({ ok: true, slug, changed: true, disabled: next });
       return EXIT.OK;

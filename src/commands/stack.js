@@ -86,6 +86,14 @@ export const restart = {
     checkServices(positionals, await docker.services());
     const r = await docker.mutate(["restart", ...positionals], { stream: true });
     if (r.code !== 0) throw new CliError("docker compose restart failed.");
+    if (!ctx.dryRun) {
+      const targets = (positionals.length ? positionals : ["cms", "web"]).filter((s) => ["cms", "web"].includes(s));
+      for (const s of targets) {
+        ctx.out.info(`Waiting for ${s} to be healthy...`);
+        const w = await docker.waitReady(s, { timeoutSec: 300, pollMs: ctx.pollMs });
+        if (!w.ok) throw new CliError(`${s} is ${w.state} after the restart.`, { hint: `polysite logs ${s} --tail 50` });
+      }
+    }
     ctx.out.ok("Restarted.");
     ctx.out.result({ ok: true });
     return EXIT.OK;

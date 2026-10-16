@@ -2,13 +2,14 @@
 // a shell or a compose file, so each test checks the exact property that was wrong.
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
 import { createDocker } from "../src/lib/docker.js";
 import { createFakeDocker, healthyStack } from "./helpers/fakeDocker.js";
 import { makeInstall, runCli } from "./helpers/cli.js";
+import { writePlugin } from "./helpers/plugins.js";
 
 const ARCHIVE = "polysite-20260101T000000Z.tar.enc";
 
@@ -68,4 +69,25 @@ test("a failed CMS operation reports the cause, not just 'Error running script'"
   const r = await runCli(["site", "list"], { cwd: makeInstall(), fake });
   assert.equal(r.code, 1);
   assert.match(r.stderr, /Cannot find module/);
+});
+
+test("plugin disable --restart and restart wait until cms and web are healthy, as `up` does", async () => {
+  const dir = makeInstall();
+  writePlugin(dir, "share");
+  const fake = createFakeDocker(healthyStack());
+  const a = await runCli(["plugin", "disable", "share", "--restart"], { cwd: dir, fake });
+  assert.equal(a.code, 0, a.stderr);
+  assert.match(a.stderr + a.stdout, /Waiting for cms to be healthy/);
+  const b = await runCli(["restart", "cms"], { cwd: dir, fake });
+  assert.equal(b.code, 0, b.stderr);
+  assert.match(b.stderr + b.stdout, /Waiting for cms to be healthy/);
+  assert.doesNotMatch(b.stderr + b.stdout, /Waiting for web/);
+});
+
+test("the generated Caddyfile carries the core's security headers and body-size limits", () => {
+  const caddy = readFileSync(new URL("../templates/Caddyfile", import.meta.url), "utf8");
+  for (const needle of ["Strict-Transport-Security", "X-Content-Type-Options nosniff", "X-Frame-Options DENY", "frame-ancestors 'none'", "max_size 64KB", "max_size 100MB", "import admin_headers", "-Server"]) {
+    assert.ok(caddy.includes(needle), `the template lacks ${needle}`);
+  }
+  assert.ok(caddy.includes("{$SITE_SCHEME:https}") && caddy.includes("{$CMS_SCHEME:https}"), "production defaults stay https");
 });

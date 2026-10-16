@@ -7,7 +7,12 @@ project uses [semantic versioning](https://semver.org/).
 
 First release tested against a real stack (see the README's "Verification status"): the cms, web and backup images were
 built from the core's `v0.1.0-beta.4` tag, served from a local registry, and driven through `init`, `up`, `backup`,
-`restore`, `upgrade` (including a rollback), `user`, `site` and `plugin`. It found three bugs, all fixed here.
+`restore`, `upgrade` (including a rollback), `user`, `site`, `plugin` (including `purge`), off-site backups and HTTPS. It found five bugs, all fixed here.
+
+### Added
+
+- `scripts/e2e-real.sh`, `e2e-plugins.sh`, `e2e-offsite.sh` and `e2e-https.sh`: real-stack scripts (see the README). 100 checks, all
+  passing on Debian 12 with the published `v0.1.0-beta.3` and `v0.1.0-beta.4` images.
 
 ### Fixed
 
@@ -17,11 +22,14 @@ built from the core's `v0.1.0-beta.4` tag, served from a local registry, and dri
   shell read it as a pipe. Table and migration counts now show real numbers instead of `?`.
 - `user` and `site` commands failed: Next marks `.next/` as CommonJS, which broke the operations script. It is now an
   `.mts` file. A failure also reports its cause instead of only "Error running script".
+- `plugin enable|disable --restart` and `restart` returned before cms and web were healthy; they now wait, as `up` does.
+- The generated Caddyfile lacked the core's security headers (HSTS, `X-Frame-Options`, `nosniff`, no `Server`) and its request-size limits
+  (64 KB for form intake, 100 MB for the API and admin). It now matches the core's Caddyfile.
 
 ### Changed
 
 - README: the status note now says what was and was not run for real.
-- Tests: 97 (four regression tests for the fixes above).
+- Tests: 99 (regression tests for the fixes above).
 
 ## [0.1.1] - 2026-10-15
 

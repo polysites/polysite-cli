@@ -9,10 +9,11 @@ The same program answers to three names: `polysite`, `polysites` and `poly`.
 - Plain ESM JavaScript, Node.js 22 or newer, **no dependencies**.
 - Needs Docker with Compose v2 on the machine it manages. It never touches the database or the images except through them.
 
-> **Early preview (v0.1).** The CLI has been run against a real Polysite stack, once, on one machine (see "Verification status"),
-> and that run found and fixed real bugs. It has **not** been tried on a production server, with HTTPS and a real domain, or with
-> plugins built into the image. Try it on a throwaway server first and take your own backup before `upgrade` or `restore`.
-> Details in "Verification status" and "Not done yet" at the end, and [CHANGELOG.md](CHANGELOG.md).
+> **Early preview (v0.1).** Besides the unit tests, the CLI is run against a real Polysite stack by four scripts (100 checks, all
+> passing on Linux: install, backup and restore, upgrade between two published releases, rollback, plugins including `plugin purge`,
+> off-site backups and HTTPS). It has **not** yet been tried on a production server with a real domain and a Let's Encrypt
+> certificate, or on macOS. Take your own backup before `upgrade` or `restore`, and read "Verification status" and
+> "Not done yet" at the end. See also [CHANGELOG.md](CHANGELOG.md).
 
 ## Install
 
@@ -195,32 +196,48 @@ The tests run the CLI in process against a **fake `docker`** program put first o
 answers from rules, so tests assert the exact commands (and stdin) the CLI sends. No daemon, network or Node on the host is
 needed (run them in a container, as above).
 
-## Verification status
+The real-stack scripts need Docker (they use ports 80 and 443 and remove what they create) and Node 22+; each prints PASS/FAIL lines
+and a total, and the header of each file lists its settings:
 
+```sh
+E2E_DIR=/tmp/e2e-real FROM_VERSION=0.1.0-beta.3 TO_VERSION=0.1.0-beta.4 sh scripts/e2e-real.sh       # published images: install, backup, restore, upgrade
+E2E_DIR=/tmp/e2e-plugins REGISTRY=localhost:5000 VERSION=0.1.0-beta.4 sh scripts/e2e-plugins.sh      # needs images built with plugins
+E2E_DIR=/tmp/e2e-offsite VERSION=0.1.0-beta.4 sh scripts/e2e-offsite.sh                              # off-site backup and restore from it
+E2E_DIR=/tmp/e2e-https VERSION=0.1.0-beta.4 sh scripts/e2e-https.sh                                  # TLS, redirect, headers, body limits
+```
+
+## Verification status
 What has been checked, and what has not.
 
-- **Unit tests:** 97 tests across argument handling, the `.env` editing, secret generation, `init`, the stack commands,
-  `plugin` (including the `purge` safety rules), `backup`, `restore`, `migrate`, `upgrade` (including the rollback path),
-  `user`, `site`, `theme` and `doctor`, run against a fake `docker`. They prove the CLI sends the commands, input and
-  refusals it is designed to send. They cannot run a shell or a compose file, which is how three bugs got past them (below).
-- **Run against a real stack (2026-10-15, version 0.1.1, Docker Desktop on Windows, Docker 28 / Compose 2.38):** the core's cms, web
-  and backup images built from the `v0.1.0-beta.4` tag and served from a throwaway local registry, with plain HTTP on
-  `localhost`. Run for real: `init`, `doctor` (offline and `--deep`), `up`, `status`, `version`, `logs`, `restart`, `down`
-  (and its typed-confirmation refusal), `backup`, `backups`, `restore --verify-only`, `restore` (a site created after the
-  backup was gone afterwards, the rest intact), `upgrade` to a second image set, the automatic rollback of an `upgrade`
-  whose new cms never became healthy (exit 5, previous release serving again), `migrate --status` and `--check`,
-  `user create|list|reset-password`, `site create|list`, `theme list`, `plugin add|list|disable|enable` against a `plugins/`
-  folder, and the refusals of `plugin remove` and `plugin purge`.
-- **That run found three bugs, fixed in 0.1.2:** `restore` could not find its own service (profile-gated services are
-  not listed by `config --services`); every database query from `plugin list` and `plugin purge` failed, because an unquoted
-  `|` in the `psql` command was read as a shell pipe; and `user` and `site` commands failed because Next's `.next/` folder is
-  CommonJS, which broke the operations script. Each now has a regression test.
-- **Not checked:** `plugin purge` against real plugin tables (the images held no plugins); the images' behaviour with plugins
-  built in; HTTPS, certificates, `doctor --online` and DNS; Linux and macOS hosts (only Windows was used); an external
-  database (`--database external`); off-site backups (`BACKUP_RCLONE_REMOTE`); an `upgrade` between two real published
-  releases; `install.sh` against a real release (there is no release host); and the installer on a machine without Node.
-  A script that repeats the real-stack run is **not written**: the run above was driven by hand.
-
+- **Unit tests:** 99 tests (`npm test`) against a fake `docker`. They prove the CLI sends the commands, input and refusals it is
+  designed to send. They cannot run a shell, a compose file or a database, which is how four bugs got past them (below).
+- **Real-stack scripts (`scripts/e2e-*.sh`, run on Debian 12 under WSL2 with Docker 28, Node 22; 100 checks, all passing, on
+  2026-10-16, CLI 0.1.2).** Each makes a throwaway install, drives the CLI, and removes the containers and volumes:
+  - `e2e-real.sh` (29 checks): the **published** images `v0.1.0-beta.3` pulled from ghcr.io without a login. `init` (file modes),
+    `doctor`, `up`, `status`, `version`, demo data (`site`, `user`, `theme`), `backup`, `backups`, `restore --verify-only`,
+    `restore` (later data gone, earlier data back), the typed-confirmation refusals, then `upgrade` to `v0.1.0-beta.4` (a real
+    migration; the data survived) and `migrate --check`.
+  - `e2e-plugins.sh` (35): cms and web images built from the core with the `share` and `analytics` plugins baked in. `plugin list`
+    (tables and migrations), `disable`/`enable --restart` (data kept), every refusal of `plugin purge`, `--dry-run` (shows the
+    SQL, names no core table, drops nothing), then a confirmed **purge**: a verified backup first, only that plugin's tables
+    dropped, the other plugin and the core data untouched, audit lines written.
+  - `e2e-offsite.sh` (20): an S3-compatible store (`rclone serve s3`) next to the stack. The backup is copied off the machine
+    encrypted with its checksum; with the local backups deleted, the stack is restored from the off-site copy alone; with no
+    passphrase, nothing is sent.
+  - `e2e-https.sh` (16): `init --scheme https` with Caddy's own certificate authority. The http to https redirect, a served
+    certificate, HSTS, `X-Frame-Options`, `nosniff`, no `Server` header, and a 70 KB form body refused with 413.
+  Also run by hand on Windows (Docker Desktop): the same flows plus the automatic rollback of an `upgrade` whose new cms never
+  became healthy (exit 5, the previous release serving again).
+- **Bugs those runs found, fixed in 0.1.2, each with a regression test:** `restore` could not find its own service
+  (profile-gated services are not listed by `config --services`); every database query from `plugin list` and `plugin purge`
+  failed (an unquoted `|` in the `psql` command was read as a shell pipe); `user` and `site` failed (Next's `.next/` folder is
+  CommonJS, which broke the operations script); `plugin --restart` and `restart` returned before the services were healthy;
+  and the generated Caddyfile lacked the core's security headers and request-size limits.
+- **Not checked:** a **Let's Encrypt** certificate (needs a public domain; Caddy's own CA was used), DNS and `doctor --online`;
+  macOS; an external database (`--database external`); off-site backups to a real cloud store (a local S3-compatible store was
+  used); the `--build` path; `install.sh` against a real published release (there is no release host yet); and the installer on
+  a machine without Node. The unfixed core issue that Live Preview is blocked on a real domain (the web image bakes in the
+  admin's address; `Polysite/docs/ARCHITECTURE.md`, Known Issue #71) applies to installs made by the CLI too.
 ## Licence
 
 The Polysite Source-Available License, the same as the rest of Polysite: see [LICENSE.md](LICENSE.md). It is not an open-source
@@ -228,7 +245,7 @@ licence; read it before using the CLI for client work.
 
 ## Not done yet (v0.1)
 
-- A script that repeats the real-stack run (see "Verification status"); it was driven by hand.
+- A run on a real production server: a public domain, a Let's Encrypt certificate, `doctor --online`, and `install.sh` from its real URL.
 - No hosted release for `install.sh`; npm is the only way to install.
 - `install.ps1` (Windows installer) is a stub; the CLI itself works on Windows through npm.
 - No `install` command that also starts the stack and prints the setup link (`init`, `doctor`, `up` do it in three steps).

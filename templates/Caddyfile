@@ -2,6 +2,28 @@
 # with SITE_SCHEME / CMS_SCHEME set to https, Caddy gets and renews a Let's Encrypt certificate for each name. Both names
 # must already point at this server (DNS A/AAAA records) and ports 80 and 443 must be reachable from the internet.
 # Add more sites by adding their domains in the admin; point each domain's DNS here and list it below.
+#
+# The headers and body-size limits below are the same as the core's own Caddyfile (Polysite/Caddyfile). Keep them in step.
+
+# Headers for what the CMS answers (the admin and the API). The public site's own pages get theirs from the web app.
+# Strict-Transport-Security is ignored by browsers on plain http, so it is harmless in a local test.
+(api_headers) {
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+}
+
+# The admin: the same, and it may not be put in a frame on another site (clickjacking).
+(admin_headers) {
+	import api_headers
+	header {
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+}
 
 {$SITE_SCHEME:https}://{$SITE_DOMAIN} {
 	root * /srv/static
@@ -11,13 +33,29 @@
 
 	# Uploaded files never change (a re-upload gets a new filename), so browsers may keep them.
 	handle /api/media/file/* {
+		import api_headers
 		reverse_proxy cms:3001 {
 			header_down Cache-Control "public, max-age=86400"
 		}
 	}
 
+	# A visitor's form submission is tiny. The app checks the declared size, but a body sent in chunks declares none,
+	# so the limit is enforced here as well.
+	handle /api/form-intake/* {
+		import api_headers
+		request_body {
+			max_size 64KB
+		}
+		reverse_proxy cms:3001
+	}
+
 	# The browser's calls to the CMS API come through the site's own address, so no CORS setup is needed.
+	# The largest body is an upload; the app caps one file (POLYSITE_MAX_UPLOAD_MB, 25 by default) and this is the outer bound.
 	handle /api/* {
+		import api_headers
+		request_body {
+			max_size 100MB
+		}
 		reverse_proxy cms:3001
 	}
 
@@ -27,6 +65,12 @@
 }
 
 {$CMS_SCHEME:https}://{$CMS_DOMAIN} {
+	import admin_headers
+
+	request_body {
+		max_size 100MB
+	}
+
 	redir / /admin
 	reverse_proxy cms:3001
 }
